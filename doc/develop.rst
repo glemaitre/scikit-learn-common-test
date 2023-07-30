@@ -393,6 +393,7 @@ implement the interface is::
             setattr(self, parameter, value)
         return self
 
+.. _parameters_init:
 
 Parameters and init
 -------------------
@@ -404,6 +405,9 @@ The easiest and recommended way to accomplish this is to
 **not do any parameter validation in** ``__init__``.
 All logic behind estimator parameters,
 like translating string arguments into functions, should be done in ``fit``.
+If you really know what you are doing, it is still possible to store private
+attributes (attribute starting with an `_`) ans scikit-learn will be lenient
+towards those parameters.
 
 Also it is expected that parameters with trailing ``_`` are **not to be set
 inside the** ``__init__`` **method**. All and only the public attributes set by

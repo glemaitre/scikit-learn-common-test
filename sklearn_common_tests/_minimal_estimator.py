@@ -1,5 +1,6 @@
 class EstimatorWithGetSetParams:
     """Estimator implemented the `get_params` and `set_params` interface."""
+
     def __init__(self, param=None):
         self.param = param
 
@@ -14,8 +15,20 @@ class EstimatorWithGetSetParams:
 
 class EstimatorWithSklearnClone:
     """Estimator implemented the `__sklearn_clone__` interface."""
+
     def __init__(self, param=None):
         self.param = param
 
     def __sklearn_clone__(self):
         return self
+
+
+class EstimatorArgsOptionalArgs(EstimatorWithGetSetParams):
+    """Estimator implemented the `__init__` interface with args and optional args."""
+
+    def __init__(self, arg1, *, arg2=None):
+        self.arg1 = arg1
+        self.arg2 = arg2
+
+    def get_params(self, deep=True):
+        return {"arg1": self.arg1, "arg2": self.arg2}
