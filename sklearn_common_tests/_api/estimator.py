@@ -3,6 +3,11 @@ from sklearn.utils import IS_PYPY
 from sklearn.utils._testing import _get_args
 
 
+def yield_estimator_api_checks(estimator):
+    yield check_estimator_api_clone
+    yield check_estimator_api_parameter_init
+
+
 def check_estimator_api_clone(name, estimator):
     """Check that an estimator passes the cloning API.
 

@@ -23,3 +23,4 @@ jupyterlite_contents
 
 __pycache__/
 *.py[cod]
+.hypothesis

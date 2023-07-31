@@ -92,6 +92,16 @@ class EstimatorAdditionalParams(BaseEstimator):
         self.additional_param = 1
 
 
+class EstimatorValidateInInit(BaseEstimator):
+    """Estimator that validate attribute in `__init__`."""
+
+    def __init__(self, param=None):
+        if param is None:
+            self.param = "xxx"
+        else:
+            self.param = param
+
+
 def test_check_estimator_api_parameter_init_error():
     """Check handling of estimators that does not implement or wrongly implement the
     regular parameter init.
@@ -105,3 +115,6 @@ def test_check_estimator_api_parameter_init_error():
     estimator = EstimatorAdditionalParams()
     with raises(AssertionError, match=err_msg):
         check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
+
+    estimator = EstimatorValidateInInit(param=None)
+    check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
