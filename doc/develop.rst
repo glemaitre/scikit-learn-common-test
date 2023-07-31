@@ -91,6 +91,8 @@ All estimators in the main scikit-learn codebase should inherit from
 Instantiation
 ^^^^^^^^^^^^^
 
+# TODO: This is a repetition of the parameters_init section below.
+
 This concerns the creation of an object. The object's ``__init__`` method
 might accept constants as arguments that determine the estimator's behavior
 (like the C constant in SVMs). It should not, however, take the actual training
@@ -138,8 +140,12 @@ The reason for postponing the validation is that the same validation
 would have to be performed in ``set_params``,
 which is used in algorithms like ``GridSearchCV``.
 
+.. _fit_api:
+
 Fitting
 ^^^^^^^
+
+# TODO: we probably want to revisit the `kwargs` part of this section.
 
 The next thing you will probably want to do is to estimate some
 parameters in the model. This is implemented in the ``fit()`` method.
@@ -397,44 +403,41 @@ implement the interface is::
 
 Parameters and init
 -------------------
-As :class:`model_selection.GridSearchCV` uses ``set_params``
-to apply parameter setting to estimators,
-it is essential that calling ``set_params`` has the same effect
-as setting parameters using the ``__init__`` method.
-The easiest and recommended way to accomplish this is to
-**not do any parameter validation in** ``__init__``.
-All logic behind estimator parameters,
-like translating string arguments into functions, should be done in ``fit``.
-If you really know what you are doing, it is still possible to store private
-attributes (attribute starting with an `_`) ans scikit-learn will be lenient
+As :class:`model_selection.GridSearchCV` uses `set_params` to apply parameter setting
+to estimators, it is essential that calling `set_params` has the same effect as
+setting parameters using the `__init__` method.
+
+The easiest and recommended way to accomplish this is to **not do any parameter
+validation in** `__init__`. All logic behind estimator parameters, like translating
+string arguments into functions, should be done in `fit`.
+
+If you really know what you are doing, it is still possible to store private attributes
+(attribute starting with an `_`) ans scikit-learn will be lenient
 towards those parameters.
 
-Also it is expected that parameters with trailing ``_`` are **not to be set
-inside the** ``__init__`` **method**. All and only the public attributes set by
-fit have a trailing ``_``. As a result the existence of parameters with
-trailing ``_`` is used to check if the estimator has been fitted.
+Also it is expected that parameters with trailing `_` are **not to be set inside the**
+`__init__` **method**. All and only the public attributes set by fit have a trailing
+`_`. As a result the existence of parameters with trailing `_` is used to check if
+the estimator has been fitted.
 
 .. _cloning:
 
 Cloning
 -------
-For use with the :mod:`~sklearn.model_selection` module,
-an estimator must support the :func:`base.clone`` function to replicate an
-estimator.
-This can be done by providing a ``get_params`` method.
-If ``get_params`` is present, then ``clone(estimator)`` will be an instance of
-``type(estimator)`` on which ``set_params`` has been called with clones of
-the result of ``estimator.get_params()``.
+For use with the :mod:`~sklearn.model_selection` module, an estimator must support the
+:func:`base.clone` function to replicate an estimator. This can be done by providing a
+`get_params` method. If `get_params` is present, then `clone(estimator)` will be
+an instance of `type(estimator)` on which `set_params` has been called with clones
+of the result of `estimator.get_params()`.
 
-Objects that do not provide this method will be deep-copied
-(using the Python standard function ``copy.deepcopy``)
-if ``safe=False`` is passed to :func:`~sklearn.base.clone`.
+Objects that do not provide this method will be deep-copied (using the Python standard
+function `copy.deepcopy`) if `safe=False` is passed to :func:`~sklearn.base.clone`.
 
 Estimators can customize the behavior of :func:`base.clone` by defining a
 `__sklearn_clone__` method. `__sklearn_clone__` must return an instance of the
-estimator. `__sklearn_clone__` is useful when an estimator needs to hold on to
-some state when :func:`base.clone` is called on the estimator. For example, a
-frozen meta-estimator for transformers can be defined as follows::
+estimator. `__sklearn_clone__` is useful when an estimator needs to hold on to some
+state when :func:`base.clone` is called on the estimator. For example, a frozen
+meta-estimator for transformers can be defined as follows::
 
     class FrozenTransformer(BaseEstimator):
         def __init__(self, fitted_transformer):

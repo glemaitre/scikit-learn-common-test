@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from sklearn.base import BaseEstimator
 from sklearn.utils._testing import raises
 
@@ -5,11 +7,13 @@ from sklearn_common_tests._minimal_estimator import (
     EstimatorWithGetSetParams,
     EstimatorWithSklearnClone,
     EstimatorArgsOptionalArgs,
+    EstimatorWithFit,
 )
 
 from sklearn_common_tests._api.estimator import (
     check_estimator_api_clone,
     check_estimator_api_parameter_init,
+    check_estimator_api_fit,
 )
 
 
@@ -92,14 +96,23 @@ class EstimatorAdditionalParams(BaseEstimator):
         self.additional_param = 1
 
 
-class EstimatorValidateInInit(BaseEstimator):
+class EstimatorCopyingInInit(BaseEstimator):
     """Estimator that validate attribute in `__init__`."""
 
-    def __init__(self, param=None):
-        if param is None:
-            self.param = "xxx"
-        else:
-            self.param = param
+    def __init__(self, param):
+        self.param = deepcopy(param)
+
+
+class EstimatorModifyInitAttributes(BaseEstimator):
+    """Estimator that validate attribute in `__init__`."""
+
+    def __init__(self, param):
+        if not isinstance(param, list):
+            raise ValueError(
+                "`param` should be a list for the purpose of this estimator"
+            )
+        self.param = param
+        del self.param[0]
 
 
 def test_check_estimator_api_parameter_init_error():
@@ -116,5 +129,34 @@ def test_check_estimator_api_parameter_init_error():
     with raises(AssertionError, match=err_msg):
         check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
 
-    estimator = EstimatorValidateInInit(param=None)
-    check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
+    err_msg = "should not modify the input attribute in any ways"
+    estimator = EstimatorCopyingInInit(param=[1, 2, 3])
+    with raises(AssertionError, match=err_msg):
+        check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
+
+    # TODO: not able to detect this case
+    # estimator = EstimatorModifyInitAttributes(param=[1, 2, 3])
+    # with raises(AssertionError, match=err_msg):
+    #     check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
+
+
+def test_check_estimator_api_fit():
+    """Check that estimator implementing the regular fit API specs are passing the
+    fit test.
+    """
+    estimator = EstimatorWithFit(param=None)
+    check_estimator_api_fit(estimator.__class__.__name__, estimator)
+
+
+class EstimatorNotImplementingFit(EstimatorWithGetSetParams):
+    """Estimator that does not implement the fit method."""
+
+
+def test_check_estimator_api_fit_error():
+    """Check that estimator not implementing or wrongly implement the fit API specs are
+    failing the fit test.
+    """
+    err_msg = "does not implement a `fit` method"
+    estimator = EstimatorNotImplementingFit()
+    with raises(AssertionError, match=err_msg):
+        check_estimator_api_fit(estimator.__class__.__name__, estimator)

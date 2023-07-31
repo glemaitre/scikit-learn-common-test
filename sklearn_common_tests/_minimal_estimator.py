@@ -32,3 +32,11 @@ class EstimatorArgsOptionalArgs(EstimatorWithGetSetParams):
 
     def get_params(self, deep=True):
         return {"arg1": self.arg1, "arg2": self.arg2}
+
+
+class EstimatorWithFit(EstimatorWithGetSetParams):
+    """Estimator implemented the `fit` interface."""
+
+    def fit(self, X, y=None):
+        self._is_fitted_ = True
+        return self

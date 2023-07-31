@@ -6,6 +6,7 @@ from sklearn.utils._testing import _get_args
 def yield_estimator_api_checks(estimator):
     yield check_estimator_api_clone
     yield check_estimator_api_parameter_init
+    yield check_estimator_api_fit
 
 
 def check_estimator_api_clone(name, estimator):
@@ -43,6 +44,12 @@ def check_estimator_api_parameter_init(name, estimator):
     """
     try:
         cloned_estimator = clone(estimator)
+    except RuntimeError as exc:
+        raise AssertionError(
+            f"Estimator {name} should not modify the input attribute in any ways. "
+            "Refer to the following development guide to implement the expected API: "
+            "https://scikit-learn.org/dev/developers/develop.html#parameters_init"
+        ) from exc
     except AttributeError as exc:
         raise AttributeError(
             f"Estimator {name} should store all parameters as an attribute during init."
@@ -74,3 +81,17 @@ def check_estimator_api_parameter_init(name, estimator):
         f"Estimator {name} should not set any attribute apart from parameters during "
         f"init. Found attributes {sorted(invalid_attr)}."
     )
+
+
+def check_estimator_api_fit(name, estimator):
+    """Check that an estimator passes the API specification for the `fit` method.
+
+    API specs defined here:
+    https://scikit-learn.org/dev/developers/develop.html#fit_api
+    """
+    if not hasattr(estimator, "fit"):
+        raise AssertionError(
+            f"Estimator {name} does not implement a `fit` method. "
+            "Refer to the following development guide to implement the expected API: "
+            "https://scikit-learn.org/dev/developers/develop.html#fit_api"
+        )
