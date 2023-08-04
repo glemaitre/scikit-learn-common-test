@@ -14,6 +14,7 @@ from sklearn_common_tests._minimal_estimator import (
 
 from sklearn_common_tests._api.estimator import (
     check_estimator_api_clone,
+    check_estimator_api_get_params,
     check_estimator_api_parameter_init,
     check_estimator_api_fit,
 )
@@ -167,6 +168,91 @@ def test_check_estimator_api_parameter_init_error():
     for estimator, type_err, err_msg in parametrize:
         with raises(type_err, match=err_msg):
             check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
+
+
+def test_checK_estimator_api_get_params():
+    """Check that an estimator implementing `get_params` specs does not fail."""
+    for Estimator in (BaseEstimator, EstimatorWithGetSetParams):
+        estimator = Estimator()
+        check_estimator_api_get_params(estimator.__class__.__name__, estimator)
+
+
+class EstimatorGetParamsWithoutDeep:
+    """Check that an estimator with `get_params` but without the optional
+    parameter `deep` fails.
+    """
+
+    def get_params(self):
+        return {}
+
+
+class EstimatorGetParamsDeepWrongDefault:
+    """Check that an estimator with `get_params` but the wrong default for the `deep`
+    parameter fails.
+    """
+
+    def get_params(self, deep=False):
+        return {}
+
+
+class EstimatorGetParamsNotEquivalentInit:
+    """Check that an estimator that does not return the same parameters as the init
+    fails.
+    """
+
+    def __init__(self, *, param=1):
+        self.param = param
+
+    def get_params(self, deep=True):
+        return {"additional_param": 2}
+
+
+class EstimatorGetParamsNotSubsetDeep:
+    """Check that we raise if `estimator.get_params(deep=True)` is not a subset of
+    `estimator.get_params(deep=False)`.
+    """
+
+    def __init__(self, *, param=1):
+        self.param = param
+
+    def get_params(self, deep=True):
+        return {} if deep else {"param": 1}
+
+
+def test_check_estimator_api_get_params_error():
+    """Check that an estimator that doen't implement the `get_params` specs fails."""
+    # parametrization with a tuple (Estimator, type_error, error_message)
+    parametrize = [
+        (
+            EstimatorNoGetSetParams,
+            AssertionError,
+            "should have a `get_params` method",
+        ),
+        (
+            EstimatorGetParamsWithoutDeep,
+            AssertionError,
+            "method does not have a `deep` optional parameter",
+        ),
+        (
+            EstimatorGetParamsDeepWrongDefault,
+            AssertionError,
+            "this parameter is not set to True by default",
+        ),
+        (
+            EstimatorGetParamsNotEquivalentInit,
+            AssertionError,
+            "the parameters between the `__init__` method and the `get_params` method",
+        ),
+        (
+            EstimatorGetParamsNotSubsetDeep,
+            AssertionError,
+            "is not subset of the ones returned by `get_params` with `deep=False`",
+        ),
+    ]
+    for Estimator, type_err, err_msg in parametrize:
+        estimator = Estimator()
+        with raises(type_err, match=err_msg):
+            check_estimator_api_get_params(estimator.__class__.__name__, estimator)
 
 
 def test_check_estimator_api_fit():

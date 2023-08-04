@@ -10,6 +10,7 @@ from sklearn.utils import is_scalar_nan
 def yield_estimator_api_checks(estimator):
     yield check_estimator_api_clone
     yield check_estimator_api_parameter_init
+    yield check_estimator_api_get_params
     yield check_estimator_api_fit
 
 
@@ -175,107 +176,85 @@ def check_estimator_api_parameter_init(name, estimator):
             assert param_value_from_get_params == param.default, failure_text
 
 
-# def check_parameters_default_constructible(name, estimator):
-#     # test default-constructibility
-#     # get rid of deprecation warnings
+def check_estimator_api_get_params(name, estimator):
+    """Check that the estimator passes the API specification for `get_params` method.
 
-#     Estimator = estimator.__class__
+    API specs defined here:
+    https://scikit-learn.org/dev/developers/develop.html#get_set_params
+    """
+    # check the general API of `get_params`:
+    # - it is implemented
+    # - as a `deep` optional parameter
+    # - with a default value of `True`
+    if not hasattr(estimator, "get_params"):
+        raise AssertionError(
+            f"Estimator {name} should have a `get_params` method. "
+            "Refer to the following development guide to implement the expected API: "
+            "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+        )
 
-#     # # test cloning
-#     # clone(estimator)
-#     # # test __repr__
-#     # repr(estimator)
-#     # # test that set_params returns self
-#     # assert estimator.set_params() is estimator
+    get_params_signature = signature(estimator.get_params)
+    assert "deep" in get_params_signature.parameters, (
+        f"Estimator {name} implements a `get_params` method. However this method does "
+        "not have a `deep` optional parameter. This parameter should be set to True by "
+        "by default."
+        "Refer to the following development guide to implement the expected API: "
+        "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+    )
+    assert get_params_signature.parameters["deep"].default is True, (
+        f"Estimator {name} implements a `get_params` method with the `deep` optional "
+        "parameter. However this parameter is not set to True by default and it is "
+        f"instead set to {get_params_signature.parameters['deep'].default}. "
+        "Refer to the following development guide to implement the expected API: "
+        "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+    )
 
-#     # test if init does nothing but set parameters
-#     # this is important for grid_search etc.
-#     # We get the default parameters from init and then
-#     # compare these against the actual values of the attributes.
+    # check the consistency between `__init__` and the output of
+    # `get_params(deep=False)`
+    estimator_init_params = _get_init_params_from_signature(estimator)
+    estimator_get_params_shallow = estimator.get_params(deep=False)
 
-#     # this comes from getattr. Gets rid of deprecation decorator.
-#     init = getattr(estimator.__init__, "deprecated_original", estimator.__init__)
+    estimator_init_params_names = set(param.name for param in estimator_init_params)
+    estimator_get_params_names = set(estimator_get_params_shallow.keys())
+    if estimator_init_params_names != estimator_get_params_names:
+        missing_get_params = estimator_init_params_names - estimator_get_params_names
+        additional_get_params = estimator_get_params_names - estimator_init_params_names
+        msg = (
+            "The not an exact matching of the parameters between the "
+            "`__init__` method and the `get_params` method."
+        )
+        if missing_get_params:
+            msg += (
+                f" The following parameters are defined in the `__init__` method "
+                "but are missing from the `get_params` method: "
+                f"{sorted(missing_get_params)}."
+            )
+        if additional_get_params:
+            msg += (
+                f" The following parameters are returned by the `get_params` "
+                "method but are missing from the `__init__` method: "
+                f"{sorted(additional_get_params)}."
+            )
+        msg += (
+            " Refer to the following development guide to implement the expected "
+            "API:"
+            "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+        )
+        raise AssertionError(msg)
 
-#     try:
-
-#         def param_filter(p):
-#             """Identify hyper parameters of an estimator."""
-#             return (
-#                 p.name != "self"
-#                 and p.kind != p.VAR_KEYWORD
-#                 and p.kind != p.VAR_POSITIONAL
-#             )
-
-#         init_params = [
-#             p for p in signature(init).parameters.values() if param_filter(p)
-#         ]
-
-#     except (TypeError, ValueError):
-#         # init is not a python function.
-#         # true for mixins
-#         return
-#     params = estimator.get_params()
-#     # they can need a non-default argument
-#     init_params = init_params[len(getattr(estimator, "_required_parameters", [])) :]
-
-#     for init_param in init_params:
-#         assert (
-#             init_param.default != init_param.empty
-#         ), "parameter %s for %s has no default value" % (
-#             init_param.name,
-#             type(estimator).__name__,
-#         )
-#         allowed_types = {
-#             str,
-#             int,
-#             float,
-#             bool,
-#             tuple,
-#             type(None),
-#             type,
-#         }
-#         # Any numpy numeric such as np.int32.
-#         allowed_types.update(np.core.numerictypes.allTypes.values())
-
-#         allowed_value = (
-#             type(init_param.default) in allowed_types
-#             or
-#             # Although callables are mutable, we accept them as argument
-#             # default value and trust that neither the implementation of
-#             # the callable nor of the estimator changes the state of the
-#             # callable.
-#             callable(init_param.default)
-#         )
-
-#         assert allowed_value, (
-#             f"Parameter '{init_param.name}' of estimator "
-#             f"'{Estimator.__name__}' is of type "
-#             f"{type(init_param.default).__name__} which is not allowed. "
-#             f"'{init_param.name}' must be a callable or must be of type "
-#             f"{set(type.__name__ for type in allowed_types)}."
-#         )
-#         if init_param.name not in params.keys():
-#             # deprecated parameter, not in get_params
-#             assert init_param.default is None, (
-#                 f"Estimator parameter '{init_param.name}' of estimator "
-#                 f"'{Estimator.__name__}' is not returned by get_params. "
-#                 "If it is deprecated, set its default value to None."
-#             )
-#             continue
-
-#         param_value = params[init_param.name]
-#         if isinstance(param_value, np.ndarray):
-#             assert_array_equal(param_value, init_param.default)
-#         else:
-#             failure_text = (
-#                 f"Parameter {init_param.name} was mutated on init. All "
-#                 "parameters must be stored unchanged."
-#             )
-#             if is_scalar_nan(param_value):
-#                 # Allows to set default parameters to np.nan
-#                 assert param_value is init_param.default, failure_text
-#             else:
-#                 assert param_value == init_param.default, failure_text
+    # check the consistency between `get_params(deep=False)` and
+    # `get_params(deep=True)`
+    estimator_get_params_deep = estimator.get_params(deep=True)
+    assert all(
+        item in estimator_get_params_deep.items()
+        for item in estimator_get_params_shallow.items()
+    ), (
+        f"For estimator {name}, the parameters returned by `get_params` with "
+        "`deep=True` is not subset of the ones returned by `get_params` with "
+        "`deep=False`."
+        " Refer to the following development guide to implement the expected API: "
+        "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+    )
 
 
 def check_estimator_api_fit(name, estimator):

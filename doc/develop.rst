@@ -317,17 +317,18 @@ the correct interface more easily.
       ...         closest = np.argmin(euclidean_distances(X, self.X_), axis=1)
       ...         return self.y_[closest]
 
+.. _get_set_params:
 
 get_params and set_params
 -------------------------
-All scikit-learn estimators have ``get_params`` and ``set_params`` functions.
-The ``get_params`` function takes no arguments and returns a dict of the
-``__init__`` parameters of the estimator, together with their values.
+All scikit-learn estimators have `get_params` and `set_params` functions.
+The `get_params` function takes no arguments and returns a dict of the
+`__init__` parameters of the estimator, together with their values.
 
-It must take one keyword argument, ``deep``, which receives a boolean value
+It must take one keyword argument, `deep`, which receives a boolean value
 that determines whether the method should return the parameters of
 sub-estimators (for most estimators, this can be ignored). The default value
-for ``deep`` should be `True`. For instance considering the following
+for `deep` should be `True`. For instance considering the following
 estimator::
 
     >>> from sklearn.base import BaseEstimator
@@ -372,17 +373,17 @@ While when `deep=False`, the output will be::
     my_extra_param -> random
     subestimator -> LogisticRegression()
 
-On the other hand, ``set_params`` takes the parameters of ``__init__``
+On the other hand, `set_params` takes the parameters of `__init__`
 as keyword arguments, unpacks them into a dict of the form
-``'parameter': value`` and sets the parameters of the estimator using this dict.
+`'parameter': value` and sets the parameters of the estimator using this dict.
 Return value must be the estimator itself.
 
-While the ``get_params`` mechanism is not essential (see :ref:`cloning` below),
-the ``set_params`` function is necessary as it is used to set parameters during
+While the `get_params` mechanism is not essential (see :ref:`cloning` below),
+the `set_params` function is necessary as it is used to set parameters during
 grid searches.
 
 The easiest way to implement these functions, and to get a sensible
-``__repr__`` method, is to inherit from ``sklearn.base.BaseEstimator``. If you
+`__repr__` method, is to inherit from `sklearn.base.BaseEstimator`. If you
 do not want to make your code dependent on scikit-learn, the easiest way to
 implement the interface is::
 
