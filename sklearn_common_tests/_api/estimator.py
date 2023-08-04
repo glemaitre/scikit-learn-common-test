@@ -1,5 +1,6 @@
 from inspect import signature
 from itertools import chain
+from pprint import pformat
 from queue import LifoQueue
 
 import numpy as np
@@ -284,7 +285,8 @@ def check_estimator_api_get_params(name, estimator):
 
         assert estimator.get_params(deep=True) == expected_params, (
             f"For estimator {name}, the parameters returned by `get_params(deep=True)` "
-            f"are incorrect."
+            "are incorrect. We would expect the following parameters:\n"
+            f"{pformat(expected_params)}\n"
             " Refer to the following development guide to implement the expected API: "
             "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
         )

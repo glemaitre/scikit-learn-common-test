@@ -219,38 +219,55 @@ class EstimatorGetParamsNotSubsetDeep:
         return {} if deep else {"param": 1}
 
 
+class EstimatorGetParamsWrongDeepMode:
+    """Check that we raise an error if `estimator.get_params(deep=True)` is not
+    returning properly nested information.
+    """
+
+    def __init__(self, *, param=None, estimator=None):
+        self.param = param
+        self.estimator = estimator
+
+    def get_params(self, deep=True):
+        return {"param": self.param, "estimator": self.estimator}
+
+
 def test_check_estimator_api_get_params_error():
     """Check that an estimator that doen't implement the `get_params` specs fails."""
-    # parametrization with a tuple (Estimator, type_error, error_message)
+    # parametrization with a tuple (estimator, type_error, error_message)
     parametrize = [
         (
-            EstimatorNoGetSetParams,
+            EstimatorNoGetSetParams(),
             AssertionError,
             "should have a `get_params` method",
         ),
         (
-            EstimatorGetParamsWithoutDeep,
+            EstimatorGetParamsWithoutDeep(),
             AssertionError,
             "method does not have a `deep` optional parameter",
         ),
         (
-            EstimatorGetParamsDeepWrongDefault,
+            EstimatorGetParamsDeepWrongDefault(),
             AssertionError,
             "this parameter is not set to True by default",
         ),
         (
-            EstimatorGetParamsNotEquivalentInit,
+            EstimatorGetParamsNotEquivalentInit(),
             AssertionError,
             "the parameters between the `__init__` method and the `get_params` method",
         ),
         (
-            EstimatorGetParamsNotSubsetDeep,
+            EstimatorGetParamsNotSubsetDeep(),
             AssertionError,
             "is not subset of the ones returned by `get_params` with `deep=False`",
         ),
+        (
+            EstimatorGetParamsWrongDeepMode(estimator=EstimatorWithGetSetParams()),
+            AssertionError,
+            r"the parameters returned by `get_params\(deep=True\)` are incorrect",
+        ),
     ]
-    for Estimator, type_err, err_msg in parametrize:
-        estimator = Estimator()
+    for estimator, type_err, err_msg in parametrize:
         with raises(type_err, match=err_msg):
             check_estimator_api_get_params(estimator.__class__.__name__, estimator)
 
