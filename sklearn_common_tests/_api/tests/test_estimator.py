@@ -233,7 +233,7 @@ class EstimatorGetParamsWrongDeepMode:
 
 
 def test_check_estimator_api_get_params_error():
-    """Check that an estimator that doen't implement the `get_params` specs fails."""
+    """Check that an estimator that doesn't implement the `get_params` specs fails."""
     # parametrization with a tuple (estimator, type_error, error_message)
     parametrize = [
         (

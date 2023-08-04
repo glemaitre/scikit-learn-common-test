@@ -13,6 +13,7 @@ def yield_estimator_api_checks(estimator):
     yield check_estimator_api_clone
     yield check_estimator_api_parameter_init
     yield check_estimator_api_get_params
+    yield check_estimator_api_set_params
     yield check_estimator_api_fit
 
 
@@ -288,6 +289,20 @@ def check_estimator_api_get_params(name, estimator):
             "are incorrect. We would expect the following parameters:\n"
             f"{pformat(expected_params)}\n"
             " Refer to the following development guide to implement the expected API: "
+            "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+        )
+
+
+def check_estimator_api_set_params(name, estimator):
+    """Check that the estimator passes the API specification for `set_params` method.
+
+    API specs defined here:
+    https://scikit-learn.org/dev/developers/develop.html#get_set_params
+    """
+    if not hasattr(estimator, "set_params"):
+        raise AssertionError(
+            f"Estimator {name} should have a `get_params` method. "
+            "Refer to the following development guide to implement the expected API: "
             "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
         )
 
