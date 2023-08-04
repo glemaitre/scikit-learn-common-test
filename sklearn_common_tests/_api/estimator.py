@@ -5,7 +5,6 @@ import numpy as np
 
 from sklearn.base import clone
 from sklearn.utils import is_scalar_nan
-from sklearn.utils._testing import assert_array_equal
 
 
 def yield_estimator_api_checks(estimator):
@@ -158,21 +157,22 @@ def check_estimator_api_parameter_init(name, estimator):
             f"{type(param.default).__name__} which is not allowed. "
             f"'{param.name}' must be a callable or must be of type "
             f"{set(type.__name__ for type in allowed_types)}."
+            " Refer to the following development guide to implement the expected API: "
+            "https://scikit-learn.org/dev/developers/develop.html#parameters_init"
         )
 
         param_value_from_get_params = estimator_get_params[param.name]
-        if isinstance(param_value_from_get_params, np.ndarray):
-            assert_array_equal(param_value_from_get_params, param.default)
+        failure_text = (
+            f"Parameter {param.name} was mutated on init. All parameters must be "
+            "stored unchanged. Refer to the following development guide to implement "
+            "the expected API: "
+            "https://scikit-learn.org/dev/developers/develop.html#parameters_init"
+        )
+        if is_scalar_nan(param_value_from_get_params):
+            # Allows to set default parameters to np.nan
+            assert param_value_from_get_params is param.default, failure_text
         else:
-            failure_text = (
-                f"Parameter {param.name} was mutated on init. All parameters must be "
-                "stored unchanged."
-            )
-            if is_scalar_nan(param_value_from_get_params):
-                # Allows to set default parameters to np.nan
-                assert param_value_from_get_params is param.default, failure_text
-            else:
-                assert param_value_from_get_params == param.default, failure_text
+            assert param_value_from_get_params == param.default, failure_text
 
 
 # def check_parameters_default_constructible(name, estimator):

@@ -1,5 +1,7 @@
 from copy import deepcopy
 
+import numpy as np
+
 from sklearn.base import BaseEstimator
 from sklearn.utils._testing import raises
 
@@ -106,23 +108,22 @@ class EstimatorCopyingInInit(BaseEstimator):
         self.param = deepcopy(param)
 
 
-class EstimatorModifyInitAttributes(BaseEstimator):
-    """Estimator that modify attribute in `__init__`."""
-
-    def __init__(self, param):
-        if not isinstance(param, list):
-            raise ValueError(
-                "`param` should be a list for the purpose of this estimator"
-            )
-        self.param = param
-        del self.param[0]
-
-
 class EstimatorMutableInitAttributes(BaseEstimator):
     """Estimator that as a default mutable attribute in `__init__`."""
 
     def __init__(self, param=[]):
         self.param = param
+
+
+class EstimatorModifyDefaultAttribute(BaseEstimator):
+    """Estimator that create modify a default parameter in `__init__`."""
+
+    def __init__(self, *, param=None, replace_by_nan=True):
+        if replace_by_nan:
+            self.param = np.nan
+        else:
+            self.param = "random"
+        self.replace_by_nan = replace_by_nan
 
 
 def test_check_estimator_api_parameter_init_error():
@@ -146,12 +147,20 @@ def test_check_estimator_api_parameter_init_error():
             AssertionError,
             "should not modify the input attribute in any ways",
         ),
-        # TODO: not able to detect this case
-        # (EstimatorModifyInitAttributes(param=[1, 2, 3]), AssertionError, "xxxx"),
         (
             EstimatorMutableInitAttributes(),
             AssertionError,
             "is of type list which is not allowed",
+        ),
+        (
+            EstimatorModifyDefaultAttribute(replace_by_nan=True),
+            AssertionError,
+            "param was mutated on init",
+        ),
+        (
+            EstimatorModifyDefaultAttribute(replace_by_nan=False),
+            AssertionError,
+            "param was mutated on init",
         ),
     ]
 
