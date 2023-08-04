@@ -1,5 +1,6 @@
 from inspect import signature
 from itertools import chain
+from queue import LifoQueue
 
 import numpy as np
 
@@ -255,6 +256,38 @@ def check_estimator_api_get_params(name, estimator):
         " Refer to the following development guide to implement the expected API: "
         "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
     )
+
+    # When using `get_params(deep=True)`, we need to recurse estimators to make sure
+    # that we show all parameters. This test does not handle list of estimators as
+    # parameters. This case is usually linked with the estimator having a private
+    # attribute `_required_params`.
+    # TODO: do we want to handle such composition case?
+    if not hasattr(estimator, "_required_parameters"):
+        # this is an alternative implementation of `get_params` that uses a
+        # LIFO queue and store any estimator to get parameters from in the
+        # queue.
+        nested_estimator = LifoQueue()
+        # initialize the queue with the top-level estimator
+        nested_estimator.put((name, estimator))
+        expected_params = estimator.get_params(deep=False)
+        nesting_level = 0  # later on used to preprend the name of the parameter
+        while not nested_estimator.empty():
+            est_name, est = nested_estimator.get()
+            est_params = est.get_params(deep=False)
+            for param_name, param_value in est_params.items():
+                pname = f"{est_name}__{param_name}" if nesting_level > 0 else param_name
+                expected_params[pname] = param_value
+                if hasattr(param_value, "get_params"):
+                    # to be recurse in a later iteration
+                    nested_estimator.put((pname, param_value))
+            nesting_level += 1
+
+        assert estimator.get_params(deep=True) == expected_params, (
+            f"For estimator {name}, the parameters returned by `get_params(deep=True)` "
+            f"are incorrect."
+            " Refer to the following development guide to implement the expected API: "
+            "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+        )
 
 
 def check_estimator_api_fit(name, estimator):
