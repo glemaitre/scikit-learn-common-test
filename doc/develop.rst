@@ -93,39 +93,35 @@ Instantiation
 
 # TODO: This is a repetition of the parameters_init section below.
 
-This concerns the creation of an object. The object's ``__init__`` method
-might accept constants as arguments that determine the estimator's behavior
-(like the C constant in SVMs). It should not, however, take the actual training
-data as an argument, as this is left to the ``fit()`` method::
+This concerns the creation of an object. The object's `__init__` method might accept
+constants as arguments that determine the estimator's behavior (like the `C` constant in
+SVMs). It should not, however, take the actual training data as an argument, as this is
+left to the `fit()` method::
 
     clf2 = SVC(C=2.3)
     clf3 = SVC([[1, 2], [2, 3]], [-1, 1]) # WRONG!
 
+The arguments accepted by `__init__` should all be keyword arguments with a default
+value. In other words, a user should be able to instantiate an estimator without passing
+any arguments to it. The arguments should all correspond to hyperparameters describing
+the model or the optimisation problem the estimator tries to solve. These initial
+arguments (or parameters) are always remembered by the estimator. Also note that they
+should not be documented under the "Attributes" section, but rather under the
+"Parameters" section for that estimator.
 
-The arguments accepted by ``__init__`` should all be keyword arguments
-with a default value. In other words, a user should be able to instantiate
-an estimator without passing any arguments to it. The arguments should all
-correspond to hyperparameters describing the model or the optimisation
-problem the estimator tries to solve. These initial arguments (or parameters)
-are always remembered by the estimator.
-Also note that they should not be documented under the "Attributes" section,
-but rather under the "Parameters" section for that estimator.
+In addition, **every keyword argument accepted by** ``__init__`` **should correspond to
+an attribute on the instance**. Scikit-learn relies on this to find the relevant
+attributes to set on an estimator when doing model selection.
 
-In addition, **every keyword argument accepted by** ``__init__`` **should
-correspond to an attribute on the instance**. Scikit-learn relies on this to
-find the relevant attributes to set on an estimator when doing model selection.
-
-To summarize, an ``__init__`` should look like::
+To summarize, an `__init__` should look like::
 
     def __init__(self, param1=1, param2=2):
         self.param1 = param1
         self.param2 = param2
 
-There should be no logic, not even input validation,
-and the parameters should not be changed.
-The corresponding logic should be put where the parameters are used,
-typically in ``fit``.
-The following is wrong::
+There should be no logic, not even input validation, and the parameters should not be
+changed. The corresponding logic should be put where the parameters are used, typically
+in `fit`. The following is wrong::
 
     def __init__(self, param1=1, param2=2, param3=3):
         # WRONG: parameters should not be modified
@@ -136,9 +132,9 @@ The following is wrong::
         # the argument in the constructor
         self.param3 = param2
 
-The reason for postponing the validation is that the same validation
-would have to be performed in ``set_params``,
-which is used in algorithms like ``GridSearchCV``.
+The reason for postponing the validation is that the same validation would have to be
+performed in `set_params`, which is used in algorithms like
+:class:`~sklearn.model_selection.GridSearchCV`.
 
 .. _fit_api:
 
@@ -403,6 +399,9 @@ implement the interface is::
 
 Parameters and init
 -------------------
+# TODO: it seems that we have a tests regarding the type of allowed values.
+# TODO: Duplicated information with the section "Instantiation" above.
+
 As :class:`model_selection.GridSearchCV` uses `set_params` to apply parameter setting
 to estimators, it is essential that calling `set_params` has the same effect as
 setting parameters using the `__init__` method.

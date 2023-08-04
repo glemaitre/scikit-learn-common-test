@@ -26,6 +26,10 @@ class EstimatorWithSklearnClone:
 class EstimatorArgsOptionalArgs(EstimatorWithGetSetParams):
     """Estimator implemented the `__init__` interface with args and optional args."""
 
+    # Since `arg1` is a required argument, it needs to be listed in
+    # `_required_parameters`.
+    _required_parameters = ["arg1"]
+
     def __init__(self, arg1, *, arg2=None):
         self.arg1 = arg1
         self.arg2 = arg2

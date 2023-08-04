@@ -21,11 +21,9 @@ def test_check_estimator_api_clone():
     """Check that estimator implementing the scikit-learn cloning API are passing the
     cloning test.
     """
-    estimator = EstimatorWithGetSetParams()
-    check_estimator_api_clone(estimator.__class__.__name__, estimator)
-
-    estimator = EstimatorWithSklearnClone()
-    check_estimator_api_clone(estimator.__class__.__name__, estimator)
+    for Estimator in (EstimatorWithGetSetParams, EstimatorWithSklearnClone):
+        estimator = Estimator()
+        check_estimator_api_clone(estimator.__class__.__name__, estimator)
 
 
 class EstimatorNoGetSetParams:
@@ -49,17 +47,24 @@ def test_check_estimator_api_clone_error():
     """Check handling of estimators that does not implement or wrongly implement the
     scikit-learn cloning API.
     """
-    err_msg = "does not implement a 'get_params' method"
-    estimator = EstimatorNoGetSetParams()
-    with raises(TypeError, match=err_msg):
-        check_estimator_api_clone(estimator.__class__.__name__, estimator)
+    # parametrization with a tuple of (Estimator, type_error, error_message)
+    parametrize = [
+        (
+            EstimatorNoGetSetParams,
+            TypeError,
+            "does not implement a 'get_params' method",
+        ),
+        (
+            EstimatorWrongSklearnClone,
+            AssertionError,
+            "Cloning an estimator should return an estimator instance of the same",
+        ),
+    ]
 
-    err_msg = (
-        "Cloning an estimator should return an estimator instance of the same class"
-    )
-    estimator = EstimatorWrongSklearnClone()
-    with raises(AssertionError, match=err_msg):
-        check_estimator_api_clone(estimator.__class__.__name__, estimator)
+    for Estimator, type_err, err_msg in parametrize:
+        estimator = Estimator()
+        with raises(type_err, match=err_msg):
+            check_estimator_api_clone(estimator.__class__.__name__, estimator)
 
 
 class EstimatorWithPrivateAttributes(EstimatorArgsOptionalArgs):
@@ -74,11 +79,9 @@ def test_check_estimator_api_parameter_init():
     """Check that estimator implementing the regular parameter init are passing the
     parameter init test.
     """
-    estimator = EstimatorArgsOptionalArgs(1, arg2=2)
-    check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
-
-    estimator = EstimatorWithPrivateAttributes(1, arg2=2)
-    check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
+    for Estimator in (EstimatorArgsOptionalArgs, EstimatorWithPrivateAttributes):
+        estimator = Estimator(1)
+        check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
 
 
 class EstimatorNotStoringParams(BaseEstimator):
@@ -104,7 +107,7 @@ class EstimatorCopyingInInit(BaseEstimator):
 
 
 class EstimatorModifyInitAttributes(BaseEstimator):
-    """Estimator that validate attribute in `__init__`."""
+    """Estimator that modify attribute in `__init__`."""
 
     def __init__(self, param):
         if not isinstance(param, list):
@@ -115,29 +118,46 @@ class EstimatorModifyInitAttributes(BaseEstimator):
         del self.param[0]
 
 
+class EstimatorMutableInitAttributes(BaseEstimator):
+    """Estimator that as a default mutable attribute in `__init__`."""
+
+    def __init__(self, param=[]):
+        self.param = param
+
+
 def test_check_estimator_api_parameter_init_error():
     """Check handling of estimators that does not implement or wrongly implement the
     regular parameter init.
     """
-    err_msg = "should store all parameters as an attribute during init."
-    estimator = EstimatorNotStoringParams()
-    with raises(AttributeError, match=err_msg):
-        check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
+    # parametrization with a tuple (estimator, type_error, error_message)
+    parametrize = [
+        (
+            EstimatorNotStoringParams(),
+            AttributeError,
+            "should store all parameters as an attribute during init.",
+        ),
+        (
+            EstimatorAdditionalParams(),
+            AssertionError,
+            "should not set any attribute apart from parameters during init.",
+        ),
+        (
+            EstimatorCopyingInInit(param=[1, 2, 3]),
+            AssertionError,
+            "should not modify the input attribute in any ways",
+        ),
+        # TODO: not able to detect this case
+        # (EstimatorModifyInitAttributes(param=[1, 2, 3]), AssertionError, "xxxx"),
+        (
+            EstimatorMutableInitAttributes(),
+            AssertionError,
+            "is of type list which is not allowed",
+        ),
+    ]
 
-    err_msg = "should not set any attribute apart from parameters during init."
-    estimator = EstimatorAdditionalParams()
-    with raises(AssertionError, match=err_msg):
-        check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
-
-    err_msg = "should not modify the input attribute in any ways"
-    estimator = EstimatorCopyingInInit(param=[1, 2, 3])
-    with raises(AssertionError, match=err_msg):
-        check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
-
-    # TODO: not able to detect this case
-    # estimator = EstimatorModifyInitAttributes(param=[1, 2, 3])
-    # with raises(AssertionError, match=err_msg):
-    #     check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
+    for estimator, type_err, err_msg in parametrize:
+        with raises(type_err, match=err_msg):
+            check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
 
 
 def test_check_estimator_api_fit():
