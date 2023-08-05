@@ -301,7 +301,7 @@ def check_estimator_api_set_params(name, estimator):
     """
     if not hasattr(estimator, "set_params"):
         raise AssertionError(
-            f"Estimator {name} should have a `get_params` method. "
+            f"Estimator {name} should have a `set_params` method. "
             "Refer to the following development guide to implement the expected API: "
             "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
         )

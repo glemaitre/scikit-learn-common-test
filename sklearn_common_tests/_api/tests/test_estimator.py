@@ -17,6 +17,7 @@ from sklearn_common_tests._api.estimator import (
     check_estimator_api_get_params,
     check_estimator_api_parameter_init,
     check_estimator_api_fit,
+    check_estimator_api_set_params,
 )
 
 
@@ -170,7 +171,7 @@ def test_check_estimator_api_parameter_init_error():
             check_estimator_api_parameter_init(estimator.__class__.__name__, estimator)
 
 
-def test_checK_estimator_api_get_params():
+def test_check_estimator_api_get_params():
     """Check that an estimator implementing `get_params` specs does not fail."""
     for Estimator in (BaseEstimator, EstimatorWithGetSetParams):
         estimator = Estimator()
@@ -278,6 +279,28 @@ def test_check_estimator_api_fit():
     """
     estimator = EstimatorWithFit(param=None)
     check_estimator_api_fit(estimator.__class__.__name__, estimator)
+
+
+def test_check_estimator_api_set_params():
+    """Check that an estimator implementing `set_params` specs does not fail."""
+    for Estimator in (BaseEstimator, EstimatorWithGetSetParams):
+        estimator = Estimator()
+        check_estimator_api_get_params(estimator.__class__.__name__, estimator)
+
+
+def test_check_estimator_api_set_params_error():
+    """Check that an estimator that doesn't implement the `set_params` specs fails."""
+    # parametrization with a tuple (estimator, type_error, error_message)
+    parametrize = [
+        (
+            EstimatorNoGetSetParams(),
+            AssertionError,
+            "should have a `set_params` method",
+        ),
+    ]
+    for estimator, type_err, err_msg in parametrize:
+        with raises(type_err, match=err_msg):
+            check_estimator_api_set_params(estimator.__class__.__name__, estimator)
 
 
 class EstimatorNotImplementingFit(EstimatorWithGetSetParams):
