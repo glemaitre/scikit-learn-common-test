@@ -1,5 +1,6 @@
+from copy import deepcopy
 from inspect import signature
-from itertools import chain
+from itertools import chain, product
 from pprint import pformat
 from queue import LifoQueue
 
@@ -14,6 +15,7 @@ def yield_estimator_api_checks(estimator):
     yield check_estimator_api_parameter_init
     yield check_estimator_api_get_params
     yield check_estimator_api_set_params
+    yield check_estimator_api_round_trip_get_set_params
     yield check_estimator_api_fit
 
 
@@ -263,7 +265,8 @@ def check_estimator_api_get_params(name, estimator):
     # that we show all parameters. This test does not handle list of estimators as
     # parameters. This case is usually linked with the estimator having a private
     # attribute `_required_params`.
-    # TODO: do we want to handle such composition case?
+    # TODO: do we want to handle such composition case? This is somehow tested in
+    # round-trip get_params -> set_params -> get_params.
     if not hasattr(estimator, "_required_parameters"):
         # this is an alternative implementation of `get_params` that uses a
         # LIFO queue and store any estimator to get parameters from in the
@@ -305,6 +308,119 @@ def check_estimator_api_set_params(name, estimator):
             "Refer to the following development guide to implement the expected API: "
             "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
         )
+
+    # check that set_params returns self
+    # make a deep clone since `set_params` could modify the state of the estimator
+    cloned_estimator = deepcopy(estimator)
+    assert cloned_estimator.set_params() is cloned_estimator, (
+        f"Estimator {name} does not return `self` from `set_params`. "
+        "Refer to the following development guide to implement the expected API: "
+        "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+    )
+
+    all_param_names = estimator.get_params(deep=False).keys()
+    # Try different type of values that we can easily detect. Since there is no
+    # validation in `set_params` we can pass anything.
+    test_values = [-np.inf, np.inf, None]
+
+    for param_name, test_value in product(all_param_names, test_values):
+        # make a deepcopy of the original estimator since we are going to change nested
+        # parameter that will not be copied using `clone`
+        cloned_estimator = deepcopy(estimator)
+        original_params = cloned_estimator.get_params(deep=False).copy()
+        # make a round-trip to make sure that the estimator is not modified by
+        cloned_estimator.set_params(**original_params)
+        # set specifically the current parameter
+        cloned_estimator.set_params(**{param_name: test_value})
+
+        current_params = cloned_estimator.get_params(deep=False)
+        original_params_name = set(original_params.keys())
+        current_params_name = set(current_params.keys())
+        assert original_params_name == current_params_name, (
+            f"Estimator {name} does not implement properly `get_params` and"
+            "`set_params`. After setting parameters, `get_params` does not return the "
+            "same set of parameters. The problematic parameter(s) is(are): "
+            f"{original_params_name.symmetric_difference(current_params_name)}. "
+            "Refer to the following development guide to implement the expected API: "
+            "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+        )
+        msg = (
+            "Estimator {0} does not implement properly `get_params` and"
+            "`set_params`. The parameter `{1}` was not set properly set. The memory "
+            "address of the parameter changed. "
+            "Refer to the following development guide to implement the expected API: "
+            "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+        )
+        for current_param_name, current_param_value in current_params.items():
+            if current_param_name is param_name:
+                assert current_param_value is test_value, msg.format(
+                    name, current_param_name
+                )
+            else:
+                assert (
+                    current_param_value is original_params[current_param_name]
+                ), msg.format(name, current_param_name)
+
+
+def check_estimator_api_round_trip_get_set_params(name, estimator):
+    """Check the API for `get_params` and `set_params` by a round-trip.
+
+    Complementary to `set_params` test since it would test the case `deep=True`.
+
+    API specs defined here:
+    https://scikit-learn.org/dev/developers/develop.html#get_set_params
+    """
+    # Make an original deepcopy of the parameters that are used in `set_params`. In this
+    # way, they will not be impacted by a wrong `set_params` implementation that changes
+    # the internal state of the estimator.
+    original_params = deepcopy(estimator.get_params(deep=True))
+    estimator.set_params(**original_params)
+    updated_params = estimator.get_params(deep=True)
+
+    original_params_name = set(original_params.keys())
+    updated_params_name = set(updated_params.keys())
+    assert original_params_name == updated_params_name, (
+        f"Estimator {name} does not implement properly `get_params` and `set_params`. "
+        "The names of the parameters does not correspond after a round-trip "
+        "get_params/set_params. The problematic parameter(s) is(are): "
+        f"{original_params_name.symmetric_difference(updated_params_name)}. "
+        "Refer to the following development guide to implement the expected API: "
+        "https://scikit-learn.org/dev/developers/develop.html#get_set_params"
+    )
+
+    for updated_param_name, updated_param_value in updated_params.items():
+        if (
+            (required_parameters := getattr(estimator, "_required_parameters", None))
+            is not None
+            and updated_param_name in required_parameters
+            # We want to treat differently estimator that accepts a list of tuples
+            # containing estimators. Setting those will change the memory address of
+            # the parameter because tuple are immutable.
+            and isinstance(original_params[updated_param_name], list)
+            and isinstance(original_params[updated_param_name][0], tuple)
+        ):
+            for tuple_updated, tuple_original in zip(
+                updated_param_value, original_params[updated_param_name]
+            ):
+                for elt_updated, elt_original in zip(tuple_updated, tuple_original):
+                    assert elt_updated is elt_original, (
+                        f"Estimator {name} does not implement properly `get_params` "
+                        "and `set_params`. The memory address of inner parameters has "
+                        f"changed for the parameter `{updated_param_name}`. "
+                        "Refer to the following development guide to implement the "
+                        "expected API: https://scikit-learn.org/dev/developers/"
+                        "develop.html#get_set_params"
+                    )
+        else:
+            assert original_params[updated_param_name] is updated_param_value, (
+                f"Estimator {name} does not implement properly `get_params` and "
+                "`set_params`. Implementing a round-trip get_params/set_params does "
+                "not return the exact same object. The memory address of the parameter "
+                f"`{updated_param_name}` has changed. "
+                "Refer to the following development guide to implement the expected "
+                "API: https://scikit-learn.org/dev/developers/"
+                "develop.html#get_set_params"
+            )
 
 
 def check_estimator_api_fit(name, estimator):

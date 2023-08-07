@@ -3,6 +3,7 @@ from copy import deepcopy
 import numpy as np
 
 from sklearn.base import BaseEstimator
+from sklearn.utils.metaestimators import _BaseComposition
 from sklearn.utils._testing import raises
 
 from sklearn_common_tests._minimal_estimator import (
@@ -17,6 +18,7 @@ from sklearn_common_tests._api.estimator import (
     check_estimator_api_get_params,
     check_estimator_api_parameter_init,
     check_estimator_api_fit,
+    check_estimator_api_round_trip_get_set_params,
     check_estimator_api_set_params,
 )
 
@@ -273,19 +275,53 @@ def test_check_estimator_api_get_params_error():
             check_estimator_api_get_params(estimator.__class__.__name__, estimator)
 
 
-def test_check_estimator_api_fit():
-    """Check that estimator implementing the regular fit API specs are passing the
-    fit test.
-    """
-    estimator = EstimatorWithFit(param=None)
-    check_estimator_api_fit(estimator.__class__.__name__, estimator)
-
-
 def test_check_estimator_api_set_params():
     """Check that an estimator implementing `set_params` specs does not fail."""
     for Estimator in (BaseEstimator, EstimatorWithGetSetParams):
         estimator = Estimator()
-        check_estimator_api_get_params(estimator.__class__.__name__, estimator)
+        check_estimator_api_set_params(estimator.__class__.__name__, estimator)
+
+
+class EstimatorSetParamsDoesNotReturnSelf:
+    """Check that an estimator with `set_params` but not returning self fails."""
+
+    def __init__(self, *, param=1):
+        self.param = param
+
+    def set_params(self, **params):
+        return None
+
+
+class EstimatorSetParamsCreateNewParam:
+    """Check that an estimator that runs modify the address of instances in `set_params`
+    fails."""
+
+    def __init__(self, *, param1=1, param2=2):
+        self.param1 = param1
+        self.param2 = param2
+
+    def get_params(self, deep=True):
+        return self.__dict__
+
+    def set_params(self, **params):
+        for param_name, param_value in params.items():
+            setattr(self, param_name, param_value)
+        self.new_param = 1
+        return self
+
+
+class EstimatorSetParamsCopy(BaseEstimator):
+    """Check that an estimator that runs modify the address of instances in `set_params`
+    fails."""
+
+    def __init__(self, *, param1=1, param2=2):
+        self.param1 = param1
+        self.param2 = param2
+
+    def set_params(self, **params):
+        for param_name, param_value in params.items():
+            setattr(self, param_name, deepcopy(param_value))
+        return self
 
 
 def test_check_estimator_api_set_params_error():
@@ -297,10 +333,106 @@ def test_check_estimator_api_set_params_error():
             AssertionError,
             "should have a `set_params` method",
         ),
+        (
+            EstimatorSetParamsDoesNotReturnSelf(),
+            AssertionError,
+            "does not return `self` from `set_params`",
+        ),
+        (
+            # TODO: the implementation of `BaseEstimator.get_params` would not detect
+            # this problem.
+            EstimatorSetParamsCreateNewParam(),
+            AssertionError,
+            "`get_params` does not return the same set of parameters",
+        ),
+        (
+            EstimatorSetParamsCopy(param1=BaseEstimator(), param2=1),
+            AssertionError,
+            "The memory address of the parameter changed",
+        ),
     ]
     for estimator, type_err, err_msg in parametrize:
         with raises(type_err, match=err_msg):
             check_estimator_api_set_params(estimator.__class__.__name__, estimator)
+
+
+def test_check_estimator_api_round_trip_get_set_params():
+    """Check that an estimator implementing `get_params` and `set_params` specs does
+    a proper round trip."""
+    for Estimator in (BaseEstimator, EstimatorWithGetSetParams):
+        estimator = Estimator()
+        check_estimator_api_round_trip_get_set_params(
+            estimator.__class__.__name__, estimator
+        )
+
+
+class EstimatorSetParamsModifyInnerParamComposition(_BaseComposition):
+    """Check that an estimator modifying the inner parameters of an outer parameter
+    will be detected.
+
+    Here `param` should be a list of tuple containing `(name, estimator)`.
+    """
+
+    _required_parameters = ["param"]
+
+    def __init__(self, *, param):
+        self.param = param
+
+    def get_params(self, deep=True):
+        return super()._get_params("param", deep=deep)
+
+    def set_params(self, **params):
+        super()._set_params("param", **params)
+        return self
+
+    def _replace_estimator(self, attr, name, new_val):
+        new_estimators = list(getattr(self, attr))
+        for i, (estimator_name, _) in enumerate(new_estimators):
+            if estimator_name == name:
+                # Making a deepcopy of the inner estimator
+                new_estimators[i] = (name, deepcopy(new_val))
+                break
+        setattr(self, attr, new_estimators)
+
+
+def test_check_estimator_api_round_trip_get_set_params_error():
+    """Check that an estimator that does not implement properly `get_params` and
+    `set_params` specs will fail during a round trip."""
+    # parametrization with a tuple (estimator, type_error, error_message)
+    parametrize = [
+        (
+            # TODO: the implementation of `BaseEstimator.get_params` would not detect
+            # this problem.
+            EstimatorSetParamsCreateNewParam(),
+            AssertionError,
+            "The names of the parameters does not correspond after a round-trip",
+        ),
+        (
+            EstimatorSetParamsCopy(param1=BaseEstimator(), param2=1),
+            AssertionError,
+            "The memory address of the parameter `param1` has changed",
+        ),
+        (
+            EstimatorSetParamsModifyInnerParamComposition(
+                param=[("estimator", BaseEstimator())]
+            ),
+            AssertionError,
+            "The memory address of inner parameters has changed",
+        ),
+    ]
+    for estimator, type_err, err_msg in parametrize:
+        with raises(type_err, match=err_msg):
+            check_estimator_api_round_trip_get_set_params(
+                estimator.__class__.__name__, estimator
+            )
+
+
+def test_check_estimator_api_fit():
+    """Check that estimator implementing the regular fit API specs are passing the
+    fit test.
+    """
+    estimator = EstimatorWithFit(param=None)
+    check_estimator_api_fit(estimator.__class__.__name__, estimator)
 
 
 class EstimatorNotImplementingFit(EstimatorWithGetSetParams):
